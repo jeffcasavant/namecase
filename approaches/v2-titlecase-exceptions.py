@@ -10,9 +10,9 @@ from titlecase import titlecase
 parser = argparse.ArgumentParser()
 
 # This allows us to take input from a file or from stdin (defaults to stdin)
-parser.add_argument('input',
+parser.add_argument('--input',
                     type=argparse.FileType('r'),
-                    nargs=1,
+                    default='-',
                     help='Input stream/file')
 
 parser.add_argument('--debug',
@@ -23,6 +23,8 @@ args = parser.parse_args()
 
 ####
 
-with open(args.input, 'r') as infile:
-    for line in infile:
-        print titlecase(line)
+for line in args.input.readlines():
+    line = titlecase(line)
+    
+    upper_exceptions = ['mac']
+    lower_exceptions = ['von']

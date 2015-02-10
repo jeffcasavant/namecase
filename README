@@ -3,3 +3,5 @@ cat app_c.csv | awk -F ',' '{print }' | sort > ./common-names.txt
 http://www2.census.gov/topics/genealogy/1990surnames/dist.all.last
 cat dist.all.last | awk {'print '} | sort > names
 cat names common-names.txt | sort -u > allnames
+http://www.grigsby.org/surname%20lists/index%20to%20unique%20surnames.htm
+cat Surnames* | sed 's/<[^>]*>//g' | grep -v [0-9] | grep -v 'Surnames' | grep -v '&nbsp;' | sed -e 's/^[ \t]*//' -e 's/[ \t]*$//' | grep '[a-zA-Z]' > ../names
