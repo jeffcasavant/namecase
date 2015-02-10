@@ -1,0 +1,5 @@
+http://www.census.gov/topics/population/genealogy/data/2000_surnames.html
+cat app_c.csv | awk -F ',' '{print }' | sort > ./common-names.txt
+http://www2.census.gov/topics/genealogy/1990surnames/dist.all.last
+cat dist.all.last | awk {'print '} | sort > names
+cat names common-names.txt | sort -u > allnames
