@@ -31,8 +31,8 @@ def standardizeName(name):
                 "d'",       # Ferdinand d'Orleans
                 "l'",       # Pierre l'Enfant
                 "O'",       # Peter O'Toole
-                "al-"]      # Haroun al-Rasheed
-
+                "al-",      # Haroun al-Rasheed
+                "Van"]      
 
     newName = []
     for namePart in name.split():
@@ -41,6 +41,8 @@ def standardizeName(name):
             if prefix.lower() == namePart.lower()[:len(prefix)]:
                 # Remove the prefix
                 namePart = namePart.lower()[len(prefix):]
+                if len(namePart) < 2:
+                    break
                 # Capitalize the next letter
                 namePart = namePart.title()
                 # Add the prefix back again
@@ -52,8 +54,10 @@ def standardizeName(name):
     # Particles last since they are the most specific
 
     particles = ["van",     # Netherlands
-                 "tot",     #
-                 "thoe",    #
+                 "ten",     #
+                 "ter",     #
+                 "te",      #
+                 "aan",     #
                  "aw",      # Somalia
                  "der",     # James van der Beek
                  "von",     # Ludwig von Beethoven
