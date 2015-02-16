@@ -4,8 +4,13 @@ import sys
 import requests
 import argparse
 
-def levenshtein(a,b):
+def levenshtein(a,b,caseSensitive=False):
     "Calculates the Levenshtein distance between a and b."
+
+    if not caseSensitive:
+        a = a.lower()
+        b = b.lower()
+
     n, m = len(a), len(b)
     if n > m:
         # Make sure n <= m, to use O(min(n,m)) space
@@ -26,19 +31,44 @@ def levenshtein(a,b):
 
 def standardizeName(name):
 
+    if not name:
+        return
+
     wikipediaAPI = 'http://en.wikipedia.org/w/api.php?format=json&action=query&list=search&srprop=titlesnippet&srsearch=%s'
 
     result = requests.get(wikipediaAPI % name)
 
-    titles = [article['title'] for article in result.json()['query']['search']]
+    titles = [article['title'] for article in result.json()['query']['search'] if name.lower() in article['title'].lower().replace(' ', '')]
 
-    lev = []
+    # Titlecase if we didn't get an answer
+    if not titles:
+        return name.title()
+
+    # If we did, pick the best one based on levenshtein distance
+    levSensitive = {}
+    levInsensitive = {}
     for title in titles:
-        lev.append((title, levenshtein(name, title)))
+        levSensitive[title] = levenshtein(name, title, caseSensitive=True) / float(len(name))
+        levInsensitive[title] = levenshtein(name, title) / float(len(name))
 
-    print lev.sort(key=lambda x: x[1])
+    weighted = [(title, (levSensitive[title] * .15 + levInsensitive[title] * .85)) for title in titles]
 
-    print lev
+    weighted.sort(key=lambda x: x[1])
+
+    for match in weighted:
+        bestMatch = match[0]
+
+        if name.replace(' ', '').lower() in bestMatch.replace(' ', '').lower():
+            break
+
+    finalName = ''
+    while len(finalName) < len(name):
+        finalName = bestMatch.split()[-1] + ' ' + finalName
+        bestMatch = ' '.join(bestMatch.split()[:-1])
+
+    print name + ': ',
+
+    return finalName
 
 if __name__ == '__main__':
 
