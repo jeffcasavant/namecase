@@ -11,6 +11,8 @@ import re
 
 import unicodedata
 
+import titlecase
+
 def memoize(f):
     class memodict(dict):
         __slots__ = ()
@@ -48,7 +50,7 @@ def standardizeName(name):
 
     # Titlecase if we didn't get an answer
     if not titles:
-        return name.title()
+        return titlecase.titlecase(name)
 
     # If we did, pick the best one based on levenshtein distance
     levSensitive = {}
@@ -85,10 +87,10 @@ def standardizeName(name):
         else:
             break
 
-    # If we've gotten an acronym for whatever reason, only do titlecase
+    # If we've gotten all upper case or all lowercase, only do titlecase
     # Also do this if we've gotten a weird mix of letters
-    if finalName.isupper() or levenshtein(name.upper().replace(' ', ''), finalName.upper().replace(' ', '')):
-        return name.title()
+    if finalName.isupper() or finalName.islower() or levenshtein(name.upper().replace(' ', ''), finalName.upper().replace(' ', '')):
+        return titlecase.titlecase(name)
 
     return finalName
 
@@ -110,10 +112,6 @@ if __name__ == '__main__':
 
     parser.add_argument("--lev1")
     parser.add_argument("--lev2")
-
-    parser.add_argument("--debug",
-                        action="store_true",
-                        default=False)
 
     args = parser.parse_args()
 
