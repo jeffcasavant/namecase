@@ -11,7 +11,7 @@ import re
 
 import unicodedata
 
-import titlecase
+from titlecase import titlecase
 
 def memoize(f):
     class memodict(dict):
@@ -51,11 +51,11 @@ def standardizeName(name):
     result = requests.get(wikipediaAPI % name)
 
     # Remove non alphanumeric & space characters from each title
-    titles = [re.sub(r'[^a-zA-Z0-9 ]','',article['title']) for article in result.json()['query']['search'] if name.lower() in article['title'].lower().replace(' ', '')]
+    titles = [re.sub(r'[^a-zA-Z0-9 \-\']','',article['title']) for article in result.json()['query']['search']]
 
-    # Titlecase if we didn't get an answer
+    # Titlecase if we got no answer
     if not titles:
-        return titlecase.titlecase(name)
+        return titlecase(name)
 
     # If we did, pick the best one based on levenshtein distance
     levSensitive = {}
@@ -72,9 +72,9 @@ def standardizeName(name):
     bestMatch = weighted[0][0]
 
     # Verify that the best match does in fact contain the name we want
-    if name.replace(' ', '').lower() not in bestMatch.replace(' ', '').lower():
+    if name.replace(' ', '').lower() not in re.sub(r'[^a-zA-Z0-9]','', bestMatch.lower()):
         # If not, titlecase
-        return titlecase.titlecase(name)
+        return titlecase(name)
 
     # Find the name in the title (handling cases like "Vananda, Montana" for Vananda)
     levPartialTitle = [(index, levenshtein(name, part)) for index, part in enumerate(bestMatch.split())]
@@ -88,17 +88,18 @@ def standardizeName(name):
 
     while len(finalName) < len(name):
         # If the name is too short, pull the previous word from the title (e.g. Beek -> Van Beek)
-        # Be sure there's one to pull; if we've somehow lost letters, titlecase
+        # Be sure there's one to pull; if we've somehow lost letters, try the apostropher version
         if bestMatch:
             finalName = bestMatch[-1] + ' ' + finalName
             bestMatch = bestMatch[:-1]
         else:
-            return titlecase.titlecase(name)
+            return titlecase(name)
 
-    # If we've gotten all upper case or all lowercase, only do titlecase
-    # Also do this if we've gotten a weird mix of letters
+    # If we've gotten all upper case or all lowercase, or if the name doesn't match at all
+    # try the apostrophe version
     if finalName.isupper() or finalName.islower() or levenshtein(name.upper().replace(' ', ''), finalName.upper().replace(' ', '')):
-        return titlecase.titlecase(name)
+        if not ("'" in name or "'" in finalName or "-" in name or "-" in finalName):
+            return titlecase(name)
 
     # And if we made it this far we obviously have a good result
     return finalName
