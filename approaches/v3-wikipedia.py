@@ -42,10 +42,12 @@ def standardizeName(name):
     if not name:
         return
 
+    # API URL
     wikipediaAPI = 'http://en.wikipedia.org/w/api.php?format=json&action=query&list=search&srprop=titlesnippet&srsearch=%s'
 
     result = requests.get(wikipediaAPI % name)
 
+    # Remove non alphanumeric & space characters from each title
     titles = [re.sub(r'[^a-zA-Z0-9 ]','',article['title']) for article in result.json()['query']['search'] if name.lower() in article['title'].lower().replace(' ', '')]
 
     # Titlecase if we didn't get an answer
@@ -56,18 +58,20 @@ def standardizeName(name):
     levSensitive = {}
     levInsensitive = {}
     for title in titles:
+        # Calculate both case sensitive and case insensitive distance
         levSensitive[title] = levenshtein(name, title, caseSensitive=True) / float(len(name))
         levInsensitive[title] = levenshtein(name, title) / float(len(name))
-
+    
+    # Weighted average (weighted towards case insensitive since we are looking for proper capitalization)
     weighted = [(title, (levSensitive[title] * .15 + levInsensitive[title] * .85)) for title in titles]
-
     weighted.sort(key=lambda x: x[1])
 
-    for match in weighted:
-        bestMatch = match[0]
+    bestMatch = weighted[0][0]
 
-        if name.replace(' ', '').lower() in bestMatch.replace(' ', '').lower():
-            break
+    # Verify that the best match does in fact contain the name we want
+    if name.replace(' ', '').lower() not in bestMatch.replace(' ', '').lower():
+        # If not, titlecase
+        return titlecase.titlecase(name)
 
     # Find the name in the title (handling cases like "Vananda, Montana" for Vananda)
     levPartialTitle = [(index, levenshtein(name, part)) for index, part in enumerate(bestMatch.split())]
@@ -80,18 +84,20 @@ def standardizeName(name):
     bestMatch = bestMatch[:levPartialTitle[0][0]]
 
     while len(finalName) < len(name):
-        # Pull the next particle off of our best match
+        # If the name is too short, pull the previous word from the title (e.g. Beek -> Van Beek)
+        # Be sure there's one to pull; if we've somehow lost letters, titlecase
         if bestMatch:
             finalName = bestMatch[-1] + ' ' + finalName
             bestMatch = bestMatch[:-1]
         else:
-            break
+            return titlecase.titlecase(name)
 
     # If we've gotten all upper case or all lowercase, only do titlecase
     # Also do this if we've gotten a weird mix of letters
     if finalName.isupper() or finalName.islower() or levenshtein(name.upper().replace(' ', ''), finalName.upper().replace(' ', '')):
         return titlecase.titlecase(name)
 
+    # And if we made it this far we obviously have a good result
     return finalName
 
 if __name__ == '__main__':
@@ -132,4 +138,4 @@ if __name__ == '__main__':
             print '%30s: %30s' % (line, name)
             sleep(0.1)
     else:
-        print '%s: %s' % (args.name, standardizeName(args.name, indicateFound=True))
+        print '%s: %s' % (args.name, standardizeName(args.name))
