@@ -42,6 +42,9 @@ def standardizeName(name):
     if not name:
         return
 
+    # Normalize the name
+    name = name.upper().replace(' ', '')
+
     # API URL
     wikipediaAPI = 'http://en.wikipedia.org/w/api.php?format=json&action=query&list=search&srprop=titlesnippet&srsearch=%s'
 
