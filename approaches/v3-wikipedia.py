@@ -1,17 +1,32 @@
 #! /usr/bin/env python2
 import sys
 
+from time import sleep
+
 import requests
 import argparse
 
 import Levenshtein
 import re
 
+import unicodedata
+
+def memoize(f):
+    class memodict(dict):
+        __slots__ = ()
+        def __missing__(self, key):
+            self[key] = ret = f(key)
+            return ret
+    return memodict().__getitem__
+
 def levenshtein(a,b,caseSensitive=False):
     "Calculates the Levenshtein distance between a and b."
 
-    a = unicode(a)
-    b = unicode(b)
+    # Convert unicode characters to their ascii matches 
+    # (removes umlauts & accents for this comparison)
+    # Pretend both strings are unicode for this conversion
+    a = unicodedata.normalize('NFKD', unicode(a)).encode('ascii','ignore')
+    b = unicodedata.normalize('NFKD', unicode(b)).encode('ascii','ignore')
 
     if not caseSensitive:
         a = a.lower()
@@ -19,6 +34,7 @@ def levenshtein(a,b,caseSensitive=False):
 
     return Levenshtein.distance(a,b)
 
+@memoize
 def standardizeName(name):
 
     if not name:
@@ -63,8 +79,16 @@ def standardizeName(name):
 
     while len(finalName) < len(name):
         # Pull the next particle off of our best match
-        finalName = bestMatch[-1] + ' ' + finalName
-        bestMatch = bestMatch[:-1]
+        if bestMatch:
+            finalName = bestMatch[-1] + ' ' + finalName
+            bestMatch = bestMatch[:-1]
+        else:
+            break
+
+    # If we've gotten an acronym for whatever reason, only do titlecase
+    # Also do this if we've gotten a weird mix of letters
+    if finalName.isupper() or levenshtein(name.upper().replace(' ', ''), finalName.upper().replace(' ', '')):
+        return name.title()
 
     return finalName
 
@@ -79,6 +103,8 @@ if __name__ == '__main__':
                         type=argparse.FileType("r"),
                         default="-",
                         help="Input stream/file")
+
+    parser.add_argument("--start")
 
     parser.add_argument("--name")
 
@@ -95,7 +121,17 @@ if __name__ == '__main__':
     if args.lev1 and args.lev2:
         print levenshtein(args.lev1, args.lev2)
     elif not args.name:
+        printing = False
         for line in args.input.readlines():
-            print standardizeName(line)
+            line = line.strip()
+            if args.start:
+                if not printing:
+                    if line.lower() >= args.start.lower():
+                        printing = True
+                    else:
+                        continue
+            name = standardizeName(line)
+            print '%30s: %30s' % (line, name)
+            sleep(0.1)
     else:
-        print '%s: %s' % (args.name, standardizeName(args.name))
+        print '%s: %s' % (args.name, standardizeName(args.name, indicateFound=True))
