@@ -4,30 +4,20 @@ import sys
 import requests
 import argparse
 
+import Levenshtein
+import re
+
 def levenshtein(a,b,caseSensitive=False):
     "Calculates the Levenshtein distance between a and b."
+
+    a = unicode(a)
+    b = unicode(b)
 
     if not caseSensitive:
         a = a.lower()
         b = b.lower()
 
-    n, m = len(a), len(b)
-    if n > m:
-        # Make sure n <= m, to use O(min(n,m)) space
-        a,b = b,a
-        n,m = m,n
-        
-    current = range(n+1)
-    for i in range(1,m+1):
-        previous, current = current, [i]+[0]*n
-        for j in range(1,n+1):
-            add, delete = previous[j]+1, current[j-1]+1
-            change = previous[j-1]
-            if a[j-1] != b[i-1]:
-                change = change + 1
-                current[j] = min(add, delete, change)
-                        
-    return current[n]
+    return Levenshtein.distance(a,b)
 
 def standardizeName(name):
 
@@ -38,7 +28,7 @@ def standardizeName(name):
 
     result = requests.get(wikipediaAPI % name)
 
-    titles = [article['title'] for article in result.json()['query']['search'] if name.lower() in article['title'].lower().replace(' ', '')]
+    titles = [re.sub(r'[^a-zA-Z0-9 ]','',article['title']) for article in result.json()['query']['search'] if name.lower() in article['title'].lower().replace(' ', '')]
 
     # Titlecase if we didn't get an answer
     if not titles:
@@ -61,12 +51,20 @@ def standardizeName(name):
         if name.replace(' ', '').lower() in bestMatch.replace(' ', '').lower():
             break
 
-    finalName = ''
-    while len(finalName) < len(name):
-        finalName = bestMatch.split()[-1] + ' ' + finalName
-        bestMatch = ' '.join(bestMatch.split()[:-1])
+    # Find the name in the title (handling cases like "Vananda, Montana" for Vananda)
+    levPartialTitle = [(index, levenshtein(name, part)) for index, part in enumerate(bestMatch.split())]
+    levPartialTitle.sort(key=lambda x: x[1])
 
-    print name + ': ',
+    bestMatch = bestMatch.split()
+
+    # Pull the name itself off of our best match
+    finalName = bestMatch[levPartialTitle[0][0]]
+    bestMatch = bestMatch[:levPartialTitle[0][0]]
+
+    while len(finalName) < len(name):
+        # Pull the next particle off of our best match
+        finalName = bestMatch[-1] + ' ' + finalName
+        bestMatch = bestMatch[:-1]
 
     return finalName
 
@@ -84,6 +82,9 @@ if __name__ == '__main__':
 
     parser.add_argument("--name")
 
+    parser.add_argument("--lev1")
+    parser.add_argument("--lev2")
+
     parser.add_argument("--debug",
                         action="store_true",
                         default=False)
@@ -91,8 +92,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     #### Parse input
-    if not args.name:
+    if args.lev1 and args.lev2:
+        print levenshtein(args.lev1, args.lev2)
+    elif not args.name:
         for line in args.input.readlines():
             print standardizeName(line)
     else:
-        print standardizeName(args.name)
+        print '%s: %s' % (args.name, standardizeName(args.name))
